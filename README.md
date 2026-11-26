@@ -33,7 +33,7 @@ Most Quest Link utilities help you **change settings**: bitrate, super sampling,
 <td width="50%" valign="top">
 
 ### 🔌 Catches the silent USB 2.0 fallback
-A Quest 3 on a "USB 3" cable can quietly run at **480 Mbps** for months. LinkWatch reads the negotiated speed straight from the USB hub driver and warns you when the headset *could* do USB 3 but the link did not: **check cable or port**. Nothing else on the tray tells you this.
+A Quest 3 on a "USB 3" cable can quietly run at **480 Mbps** for months. LinkWatch reads the negotiated speed straight from the USB hub driver and warns you when the headset *could* do USB 3 but the link did not: **check cable or port**. The tray icon turns orange and a notification pops up the moment it happens, so you find out during the session, not months later.
 
 </td>
 <td width="50%" valign="top">
@@ -47,7 +47,7 @@ PC on one side, headset on the other: the PC-side connector (**USB-A or USB-C**)
 <td valign="top">
 
 ### 📈 Measures real traffic, not settings
-A bitrate slider tells you what you asked for. LinkWatch shows **what actually flows**: bytes per second to the headset (exact) and back (approximate), from Windows' own USB 3 driver events. ~200 Mbps in a live VR session, ~4 Mbps when Link sits idle.
+A bitrate slider tells you what you asked for. LinkWatch shows **what actually flows**: bytes per second to the headset and back, counted for **the headset only** (not your webcam or external drive), from Windows' own USB driver events. ~200 Mbps in a live VR session, ~4 Mbps when Link sits idle.
 
 </td>
 <td valign="top">
@@ -107,7 +107,8 @@ If your Link image is blurry, stutters or drops, check the cable before anything
 - **OVRService watchdog**: checks the Quest Link service on an interval you choose, tray icon turns red and a notification pops up if it stops.
 - **One-click Re-Start**: restarts OVRService (with a warning, because it drops the live Link connection).
 - **Cable diagram**: PC on the left, headset on the right, the cable in between, coloured by speed. Shows the PC-side connector (USB-A / USB-C), any hub in between, and the negotiated speed: USB 2.0, USB 3 Gen 1 (5 Gbps), Gen 2 (10 Gbps). If the headset could do USB 3 but the link fell back to USB 2, it tells you to check the cable or port.
-- **Real USB data rate**: live graph of bytes going **to** the Quest (exact) and **from** the Quest (approximate), read from Windows' USB 3 driver events.
+- **Real USB data rate**: live graph of the bytes actually sent to and received from the headset. Only the headset's own transfers are counted; other USB devices never leak into the numbers.
+- **Cable alert**: if the link comes up at USB 2.0 although the headset supports USB 3, the tray icon turns orange and you get one notification.
 - **Wi-Fi graph (optional)**: received / sent on your network adapter, useful for Air Link.
 - **History**: one-minute averages and 1-second peaks, plus an event log (service stopped / started, headset plugged / unplugged, link speed changed, restarts), shown on a 1 h / 24 h / 7 d / 30 d graph with event markers. Kept for 30 days by default, adjustable.
 - **Admin mode without nagging**: asks for administrator rights **once**, then starts elevated from a Windows scheduled task, at logon and from the exe, with no further prompts.
@@ -131,7 +132,7 @@ Closing the window hides it to the tray. Use **Exit** in the tray menu to quit.
 
 ### Updates
 
-LinkWatch never checks for updates by itself (it makes no network connections at all). To hear about new versions, click **Watch → Custom → Releases** at the top of this page and GitHub will notify you. To update, exit LinkWatch from the tray, replace `LinkWatch.exe` with the new one in the same folder and start it again: your settings, history, admin mode and autostart all carry over.
+LinkWatch never checks for updates by itself (it makes no network connections at all). To hear about new versions, click **Watch → Custom → Releases** at the top of this page and GitHub will notify you. To update, start the new `LinkWatch.exe`: in admin mode it asks once to update the protected copy, then takes over. Your settings, history, admin mode and autostart all carry over.
 
 > Windows SmartScreen may warn about an unknown publisher, because the exe is not code-signed. You can check the source and build it yourself in a few seconds, see below.
 
@@ -154,16 +155,17 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 | Service state and restart | `System.ServiceProcess.ServiceController` |
 | Finding the headset | Configuration Manager API (`cfgmgr32`), USB vendor ID `2833` |
 | Negotiated speed, port type | USB hub IOCTLs: `GET_NODE_CONNECTION_INFORMATION_EX(_V2)`, `GET_PORT_CONNECTOR_PROPERTIES` |
-| Data rate | Real-time ETW session on `Microsoft-Windows-USB-USBXHCI`, event 41 (transfer), size read with TDH |
+| Data rate | Real-time ETW session on `Microsoft-Windows-USB-UCX`: rundown events identify the headset's device handle from its root hub and port, event 27 (transfer completed) gives direction and bytes actually transferred |
 | Wi-Fi rate | `System.Net.NetworkInformation` interface counters |
 | Elevation without prompts | A per-user scheduled task with *Run with highest privileges* |
 | Settings and history | `%APPDATA%\LinkWatch\` (`settings.json`, `history\*.csv`) |
 
-**About the "Received" number:** for transfers coming *into* the PC, Windows logs the size of the buffer that was offered, not the bytes that actually arrived. Under load it reads roughly 10-15 % high, at idle much more, so it is shown with a `~`. The *Sent* direction (PC to headset, the video stream) is exact.
+**How the numbers are attributed:** every completed bulk or interrupt transfer carries the handle of the device it belongs to. LinkWatch finds the headset's handle from where it is plugged in (root hub + port path) and counts only those transfers, using the completed length, so both directions are real byte counts. Control and isochronous transfers are not counted; Link does not use them for its stream. If Windows has to drop trace events under extreme load, LinkWatch says so next to the rate instead of silently showing less.
 
+**Admin mode and safety:** when you enable admin mode, LinkWatch copies itself to `C:\Program Files\LinkWatch` and the scheduled task runs that copy. Only administrators can write there, so a program running as your normal user cannot swap the exe that starts elevated. Starting a newer `LinkWatch.exe` from anywhere updates that copy (one prompt).
 ## Uninstall
 
-Open the gear menu, untick **Run as administrator** and **Start with Windows** (this removes the scheduled task and the startup entry), exit from the tray, delete the exe. To remove the history as well, delete `%APPDATA%\LinkWatch`.
+Open the gear menu, untick **Run as administrator** and **Start with Windows** (this removes the scheduled task and the startup entry), exit from the tray, then delete the exe and, if it exists, the folder `C:\Program Files\LinkWatch`. To remove the history as well, delete `%APPDATA%\LinkWatch`.
 
 ## Contributing
 

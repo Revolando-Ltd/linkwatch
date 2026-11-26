@@ -2,10 +2,10 @@
 # Usage: .\tools\simulate.ps1 -Name "Oculus Quest 2" -Speed "USB 2.0 (High Speed, 480 Mbps) (device is USB 3 capable, port/cable is at USB 2)" -PcPort USB-C -Hubs "Generic USB Hub" -Out quest2
 param([string]$Name = "Oculus Quest 2", [string]$Speed = "USB 3.x Gen 1 (5 Gbps, SuperSpeed)",
       [string]$PcPort = "USB-A", [string]$Hubs = "", [string]$Out = "sim")
-$exe = Join-Path (Split-Path $PSScriptRoot) "LinkWatch.exe"
+$exe = Join-Path (Split-Path $PSScriptRoot) "LinkWatch.dev.exe"
 # the real instance must not be running (single instance)
 Stop-ScheduledTask -TaskName "LinkWatch" -ErrorAction SilentlyContinue
-Get-Process LinkWatch -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process LinkWatch, LinkWatch.dev -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep 1
 "main","history","settings" | ForEach-Object { Remove-Item "$env:TEMP\LinkWatch_$_.png" -ErrorAction SilentlyContinue }
 $env:LINKWATCH_SIMULATE = "$Name;$Speed;$PcPort;$Hubs"

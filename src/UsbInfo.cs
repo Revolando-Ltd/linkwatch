@@ -11,6 +11,9 @@ public class UsbLink {
     public bool Connected;
     public string Speed = "", PcPort = "?", DevicePort = "USB-C", Device = "";
     public List<string> Hubs = new List<string>();
+    // where the device sits, for matching it in the USB trace: root hub instance id + port numbers from the root hub down
+    public string RootHubId; public int[] Ports = new int[0];
+    public string Where { get { return RootHubId + ":" + string.Join(".", Ports); } }
 }
 
 public static class UsbInfo {
@@ -98,7 +101,8 @@ public static class UsbInfo {
         return char.ToUpper(model[0]) + model.Substring(1);
     }
 
-    // Test hook: LINKWATCH_SIMULATE="reported name;speed text;PC port;hub1,hub2" pretends that headset is plugged in
+#if DEVTOOLS
+    // Test hook (dev builds only): LINKWATCH_SIMULATE="reported name;speed text;PC port;hub1,hub2" pretends that headset is plugged in
     static UsbLink Simulated(string spec) {
         var p = (spec + ";;;").Split(';');
         var link = new UsbLink { Connected = true, Device = ModelName(p[0]), Speed = p[1], PcPort = p[2] == "" ? "USB-A" : p[2] };
@@ -106,22 +110,29 @@ public static class UsbInfo {
         foreach (var h in p[3].Split(',')) if (h.Trim() != "") link.Hubs.Add(h.Trim());
         return link;
     }
+#endif
 
     public static UsbLink Get() {
+#if DEVTOOLS
         string sim = Environment.GetEnvironmentVariable("LINKWATCH_SIMULATE");
         if (!string.IsNullOrEmpty(sim)) return Simulated(sim);
+#endif
         var link = new UsbLink();
         int dev = FindQuest(); if (dev == 0) return link;
         link.Connected = true;
         int port = Address(dev), hub = Parent(dev);
         string pcPort = null;
+        var ports = new List<int> { port };
         int cur = hub;
         while (cur != 0 && Id(cur).IndexOf("ROOT_HUB", StringComparison.OrdinalIgnoreCase) < 0) {
             link.Hubs.Add(BusDesc(cur) ?? "hub");
+            ports.Insert(0, Address(cur));
             int p = Parent(cur);
             if (p != 0 && Id(p).IndexOf("ROOT_HUB", StringComparison.OrdinalIgnoreCase) >= 0) pcPort = PortType(HubPath(p), Address(cur));
             cur = p;
         }
+        if (cur != 0) link.RootHubId = Id(cur);
+        link.Ports = ports.ToArray();
         link.PcPort = pcPort ?? PortType(HubPath(hub), port);
         link.Device = ModelName(BusDesc(dev));
         // Rift / Rift S have a cable fixed to the headset: no plug on that end

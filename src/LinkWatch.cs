@@ -126,6 +126,28 @@ static class App {
     }
     public static bool TaskExists() { return Run("schtasks.exe", "/query /tn \"" + TaskName + "\"") == 0; }
 
+    // Admin mode runs a copy under Program Files. Only administrators can write there, so nothing running as the
+    // normal user can swap the exe that the elevated task starts.
+    public static string InstalledPath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "LinkWatch", "LinkWatch.exe"); } }
+    public static bool SameFile(string a, string b) {
+        try {
+            if (string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase)) return true;
+            if (!File.Exists(a) || !File.Exists(b)) return false;
+            byte[] x = File.ReadAllBytes(a), y = File.ReadAllBytes(b);
+            if (x.Length != y.Length) return false;
+            for (int i = 0; i < x.Length; i++) if (x[i] != y[i]) return false;
+            return true;
+        } catch { return false; }
+    }
+    static void EndTaskInstance() {
+        Run("schtasks.exe", "/end /tn \"" + TaskName + "\"");
+        int me = Process.GetCurrentProcess().Id;
+        for (int i = 0; i < 25; i++) {   // wait until the copy is no longer running, so it can be replaced
+            if (!Process.GetProcessesByName("LinkWatch").Any(p => { try { return p.Id != me && string.Equals(p.MainModule.FileName, InstalledPath, StringComparison.OrdinalIgnoreCase); } catch { return false; } })) break;
+            Thread.Sleep(200);
+        }
+    }
+
     public static void RestartService() {
         using (var sc = new ServiceController(ServiceName)) {
             if (sc.Status != ServiceControllerStatus.Stopped) { sc.Stop(); sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30)); }
@@ -137,7 +159,21 @@ static class App {
     public static int ApplyTask(bool want, bool logon) {
         // remove the task left by the old name ("OVR Monitor"), if any
         if (Run("schtasks.exe", "/query /tn \"OVR Monitor\"") == 0) Run("schtasks.exe", "/delete /tn \"OVR Monitor\" /f");
-        if (!want) return TaskExists() ? Run("schtasks.exe", "/delete /tn \"" + TaskName + "\" /f") : 0;
+        bool runningInstalled = string.Equals(ExePath, InstalledPath, StringComparison.OrdinalIgnoreCase);
+        if (!want) {
+            int del = TaskExists() ? Run("schtasks.exe", "/delete /tn \"" + TaskName + "\" /f") : 0;
+            // remove the protected copy, unless it is the exe running right now (then it simply stays where it is:
+            // an ordinary program under Program Files, without the elevated task)
+            try { if (!runningInstalled && File.Exists(InstalledPath)) { File.Delete(InstalledPath); Directory.Delete(Path.GetDirectoryName(InstalledPath)); } } catch { }
+            return del;
+        }
+        if (!runningInstalled && !SameFile(ExePath, InstalledPath)) {
+            try {
+                EndTaskInstance();
+                Directory.CreateDirectory(Path.GetDirectoryName(InstalledPath));
+                File.Copy(ExePath, InstalledPath, true);
+            } catch { return 2; }
+        }
         string user = Environment.UserDomainName + "\\" + Environment.UserName;
         string trig = logon ? "<LogonTrigger><Enabled>true</Enabled><UserId>" + user + "</UserId></LogonTrigger>" : "";
         string xml = "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\r\n" +
@@ -146,7 +182,7 @@ static class App {
             "<Principals><Principal id=\"Author\"><UserId>" + user + "</UserId><LogonType>InteractiveToken</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals>" +
             "<Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>" +
             "<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries><ExecutionTimeLimit>PT0S</ExecutionTimeLimit><Enabled>true</Enabled></Settings>" +
-            "<Actions Context=\"Author\"><Exec><Command>" + System.Security.SecurityElement.Escape(ExePath) + "</Command><Arguments>--hidden</Arguments></Exec></Actions></Task>";
+            "<Actions Context=\"Author\"><Exec><Command>" + System.Security.SecurityElement.Escape(InstalledPath) + "</Command><Arguments>--hidden</Arguments></Exec></Actions></Task>";
         string tmp = Path.Combine(Path.GetTempPath(), "linkwatch_task.xml");
         File.WriteAllText(tmp, xml, Encoding.Unicode);
         int r = Run("schtasks.exe", "/create /tn \"" + TaskName + "\" /xml \"" + tmp + "\" /f");
@@ -173,22 +209,32 @@ static class App {
             if (Directory.Exists(oldDir) && !Directory.Exists(newDir)) Directory.Move(oldDir, newDir);
         } catch { }
         if (args.Contains("--restart-service")) { try { RestartService(); return 0; } catch { return 1; } }
-        // --screenshot: ask the running instance to save window captures to %TEMP%\LinkWatch_*.png
+#if DEVTOOLS
+        // dev builds only. --screenshot: ask the running instance to save window captures to %TEMP%\LinkWatch_*.png
         if (args.Contains("--screenshot")) {
             try { using (var e = EventWaitHandle.OpenExisting(ShotEventName)) { e.Set(); return 0; } } catch { return 1; }
         }
+#endif
         if (args.Contains("--apply-task")) {
             var s = Settings.Load();
             return ApplyTask(s.AdminMode, s.Autostart);
         }
 
-        // already running: just bring the window up
-        try { using (var e = EventWaitHandle.OpenExisting(ShowEventName)) { if (!hidden) e.Set(); return 0; } } catch { }
-
         // admin mode: the elevated instance comes from the scheduled task, no prompt
         var cfg = Settings.Load();
-        // LINKWATCH_NO_TASK: test runs (tools\simulate.ps1) stay in this process instead of handing over to the task
-        if (!IsAdmin && cfg.AdminMode && Environment.GetEnvironmentVariable("LINKWATCH_NO_TASK") == null && TaskExists()) {
+        bool handOver = !IsAdmin && cfg.AdminMode && TaskExists();
+        // a newer exe than the protected copy the task runs: update that copy first (one prompt; this also
+        // stops the old instance so the new one takes over)
+        bool updated = handOver && !SameFile(ExePath, InstalledPath) && RunElevated("--apply-task");
+
+        // already running: just bring the window up
+        if (!updated) try { using (var e = EventWaitHandle.OpenExisting(ShowEventName)) { if (!hidden) e.Set(); return 0; } } catch { }
+
+#if DEVTOOLS
+        // dev builds only: test runs (tools\simulate.ps1) stay in this process instead of handing over to the task
+        if (Environment.GetEnvironmentVariable("LINKWATCH_NO_TASK") != null) handOver = false;
+#endif
+        if (handOver) {
             Run("schtasks.exe", "/run /tn \"" + TaskName + "\"");
             if (!hidden) SignalShow(20000);
             return 0;
@@ -197,9 +243,10 @@ static class App {
         var sec = new EventWaitHandleSecurity();
         sec.AddAccessRule(new EventWaitHandleAccessRule(WindowsIdentity.GetCurrent().User, EventWaitHandleRights.FullControl, AccessControlType.Allow));
         bool created;
-        using (var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName, out created, sec))
-        using (var shotEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShotEventName, out created, sec)) {
-            MainForm.ShotEvent = shotEvent;
+        using (var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName, out created, sec)) {
+#if DEVTOOLS
+            MainForm.ShotEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShotEventName, out created, sec);
+#endif
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             // terms of use: accepted once per terms version, otherwise the app does not start
@@ -270,6 +317,8 @@ class MainForm : Form {
     Label lblStatus, lblTime, lblUsbRate, lblConn, lblNetRate;
     Button btnWifi, btnRestart, btnSettings, btnHistory;
     UsbLink lastLink; int tick; DateTime lastCleanup = DateTime.Today;
+    DateTime lastTraceStart = DateTime.MinValue; long lostSeen; bool cableWarned;
+    readonly Icon iconOrange = Dot(Color.Orange);
     Panel secUsb, secNet;
     PictureBox picCable, graphUsb, graphNet;
     ComboBox cmbNet;
@@ -359,7 +408,7 @@ class MainForm : Form {
         Label t;
         secUsb = Section("USB cable (Quest Link)", 62, 288, out t);
         // same wording and places as the Wi-Fi box, seen from the PC: Received (from Quest) | Sent (to Quest)
-        Legend(secUsb, "Received (~)", colors["in"], 300, "<", null);
+        Legend(secUsb, "Received", colors["in"], 300, "<", null);
         Legend(secUsb, "Sent", colors["out"], 412, null, ">");
         picCable = new PictureBox { Location = new Point(8, 30), Size = new Size(475, 68), BackColor = BgGraph };
         picCable.Paint += (s, e) => DrawCable(e.Graphics, picCable.Width);
@@ -403,6 +452,7 @@ class MainForm : Form {
         menu.Items.Add("Exit", null, (s, e) => Quit());
         tray.ContextMenuStrip = menu;
         tray.BalloonTipClicked += (s, e) => { if (lastState != "Running") RestartOvr(); else ShowMain(); };
+        tray.Text = App.Name;
         tray.DoubleClick += (s, e) => ShowMain();
         FormClosing += (s, e) => { if (!quitting) { e.Cancel = true; Hide(); } };
 
@@ -423,7 +473,11 @@ class MainForm : Form {
         quitting = true; History.Flush(); History.Event("app", "LinkWatch closed"); etw.Stop(); timerSvc.Stop(); timerRate.Stop(); tray.Visible = false;
         Close(); Context.ExitThread();
     }
-    void StartUsb() { etw.Stop(); if (cfg.Measure == "ETW" && App.IsAdmin) etw.Start(); }
+    void StartUsb() {
+        etw.Stop();
+        if (cfg.Measure != "ETW" || !App.IsAdmin) return;
+        if (etw.Start()) { etw.SetTarget(usb.RootHubId, usb.Ports); lastTraceStart = DateTime.UtcNow; }
+    }
 
     void SetWifi(bool on) {
         cfg.Wifi = on; secNet.Visible = on;
@@ -441,20 +495,42 @@ class MainForm : Form {
         try { using (var sc = new ServiceController(App.ServiceName)) state = sc.Status.ToString(); } catch { state = "Not found"; }
         string time = DateTime.Now.ToString("HH:mm:ss");
         lblTime.Text = "Last check: " + time + " (every " + cfg.CheckSec + " s)";
+        bool changed = state != lastState;
         if (state == "Running") {
-            tray.Icon = iconGreen; Icon = iconGreen; tray.Text = "OVRService running (" + time + ")";
             lblStatus.Text = "OVRService: running"; lblStatus.ForeColor = Color.LimeGreen;
-            if (lastState != null && lastState != "Running") tray.ShowBalloonTip(3000, App.Name, "OVRService is running again.", ToolTipIcon.Info);
+            if (changed && lastState != null) tray.ShowBalloonTip(3000, App.Name, "OVRService is running again.", ToolTipIcon.Info);
         } else {
-            tray.Icon = iconRed; Icon = iconRed; tray.Text = "OVRService: " + state + " (" + time + ")";
             lblStatus.Text = "OVRService: " + state; lblStatus.ForeColor = Color.Red;
-            tray.ShowBalloonTip(10000, "OVRService is not running", "State: " + state + ". Click to restart.", ToolTipIcon.Error);
-            System.Media.SystemSounds.Exclamation.Play();
+            // notify once when it goes down, not on every check
+            if (changed) {
+                tray.ShowBalloonTip(10000, "OVRService is not running", "State: " + state + ". Click to restart.", ToolTipIcon.Error);
+                System.Media.SystemSounds.Exclamation.Play();
+            }
         }
-        if (state != lastState) History.Event(state == "Running" ? "service-up" : "service-down", "OVRService: " + state);
+        if (changed) History.Event(state == "Running" ? "service-up" : "service-down", "OVRService: " + state);
         lastState = state;
+        UpdateHealth();
         if (DateTime.Today != lastCleanup) { lastCleanup = DateTime.Today; History.Cleanup(); }
     }
+    // One overall state for the tray and window icon: red = service down, orange = cable holds the link at USB 2,
+    // green = fine. The cable warning is announced once per fallback.
+    bool CableLimited { get { return usb.Connected && usb.Speed.Contains("device is USB 3 capable"); } }
+    void UpdateHealth() {
+        if (tray == null) return;
+        string time = DateTime.Now.ToString("HH:mm:ss");
+        string tip;
+        if (lastState != null && lastState != "Running") { tray.Icon = iconRed; Icon = iconRed; tip = "OVRService: " + lastState + " (" + time + ")"; }
+        else if (CableLimited) { tray.Icon = iconOrange; Icon = iconOrange; tip = usb.Device + " is on USB 2.0: check cable / port"; }
+        else { tray.Icon = iconGreen; Icon = iconGreen; tip = usb.Connected ? usb.Device + ": " + Regex.Replace(usb.Speed, @"\s*\(.*$", "") : "OVRService running, no headset on USB"; }
+        tray.Text = tip.Length > 63 ? tip.Substring(0, 63) : tip;   // NotifyIcon limit
+        if (CableLimited && !cableWarned) {
+            tray.ShowBalloonTip(10000, usb.Device + " is running at USB 2.0",
+                "The headset supports USB 3 but the link came up at 480 Mbps. Re-plug the cable (try the other way round), another port or another cable.", ToolTipIcon.Warning);
+            System.Media.SystemSounds.Exclamation.Play();
+        }
+        cableWarned = CableLimited;
+    }
+
     void RestartOvr() {
         // while the service runs, a restart drops the live Link session: ask first
         if (lastState == "Running") {
@@ -466,7 +542,7 @@ class MainForm : Form {
             if (answer != DialogResult.Yes) return;
         }
         History.Event("restart", "Re-Start pressed");
-        tray.Icon = iconYellow; lblStatus.Text = "OVRService: restarting..."; lblStatus.ForeColor = Color.Gold; Refresh();
+        tray.Icon = iconYellow; Icon = iconYellow; lblStatus.Text = "OVRService: restarting..."; lblStatus.ForeColor = Color.Gold; Refresh();
         bool ok;
         if (App.IsAdmin) { try { App.RestartService(); ok = true; } catch { ok = false; } }
         else ok = App.RunElevated("--restart-service");
@@ -476,7 +552,15 @@ class MainForm : Form {
 
     void UpdateConn() {
         try { usb = UsbInfo.Get(); } catch { usb = new UsbLink(); }
-        LogLinkChange(lastLink, usb); lastLink = usb;
+        LogLinkChange(lastLink, usb);
+        // tell the USB trace which device to count; a (re)plugged headset gets a new handle that only a fresh
+        // rundown reveals, so restart the trace when it is connected but not found (at most every 10 s)
+        if (etw.Running) {
+            if (lastLink == null || lastLink.Where != usb.Where || lastLink.Connected != usb.Connected) etw.SetTarget(usb.Connected ? usb.RootHubId : null, usb.Ports);
+            if (usb.Connected && !etw.TargetResolved && (DateTime.UtcNow - lastTraceStart).TotalSeconds > 10) StartUsb();
+        }
+        lastLink = usb;
+        UpdateHealth();
         picCable.Invalidate();
         string t = usb.Connected ? usb.Speed : "Quest not connected by cable";
         lblConn.Text = "Link: " + t;
@@ -487,7 +571,9 @@ class MainForm : Form {
     void Add(string k, double v) { var l = series[k]; l.Add(v); while (l.Count > Samples) l.RemoveAt(0); }
     void UpdateRates() {
         if (showEvent.WaitOne(0)) ShowMain();
+#if DEVTOOLS
         if (ShotEvent != null && ShotEvent.WaitOne(0)) TakeScreenshots();
+#endif
         if (++tick % 5 == 0) UpdateConn();   // cable changes show up within 5 s
         var nic = Adapters().FirstOrDefault(n => n.Name == (string)cmbNet.SelectedItem);
         double rxNow = 0, txNow = 0;
@@ -501,7 +587,14 @@ class MainForm : Form {
             Add("out", o); Add("in", i); Add("rx", rx); Add("tx", tx);
             History.AddSecond(DateTime.Now, o, i, rx, tx);
             lblUsbRate.ForeColor = Color.Gainsboro;
-            if (etw.Running) lblUsbRate.Text = "Received: ~" + Rate(i) + "      Sent: " + Rate(o);
+            if (etw.Running && !usb.Connected) lblUsbRate.Text = "No headset on USB";
+            else if (etw.Running && !etw.TargetResolved) lblUsbRate.Text = "Looking for the headset in the USB trace...";
+            else if (etw.Running) {
+                lblUsbRate.Text = "Received: " + Rate(i) + "      Sent: " + Rate(o);
+                long lost = etw.Lost();
+                if (lost > lostSeen) { lblUsbRate.ForeColor = Color.Orange; lblUsbRate.Text += "      (some events were dropped, real rate is higher)"; }
+                lostSeen = lost;
+            }
             else if (cfg.Measure != "ETW") lblUsbRate.Text = "USB measurement is off (settings)";
             else if (!App.IsAdmin) { lblUsbRate.ForeColor = Color.Orange; lblUsbRate.Text = "USB measurement needs admin mode (settings)"; }
             else { lblUsbRate.ForeColor = Color.Orange; lblUsbRate.Text = "USB measurement could not start: " + etw.LastError; }
@@ -610,7 +703,8 @@ class MainForm : Form {
         }
     }
 
-    // ---------- screenshots (for the README) ----------
+#if DEVTOOLS
+    // ---------- screenshots for the README (dev builds only) ----------
     public static EventWaitHandle ShotEvent;
     static void CaptureWindow(Form f, string file) {
         f.TopMost = true; f.Activate(); f.Refresh(); Application.DoEvents(); Thread.Sleep(400);
@@ -628,6 +722,7 @@ class MainForm : Form {
         t.Tick += (s, e) => { t.Stop(); var d = Application.OpenForms.Cast<Form>().FirstOrDefault(f => f.Text == "Settings"); if (d != null) { CaptureWindow(d, "LinkWatch_settings.png"); d.DialogResult = DialogResult.Cancel; } };
         t.Start(); ShowSettings();
     }
+#endif
 
     // ---------- history ----------
     HistoryForm historyForm;
