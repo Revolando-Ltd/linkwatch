@@ -187,7 +187,8 @@ static class App {
 
         // admin mode: the elevated instance comes from the scheduled task, no prompt
         var cfg = Settings.Load();
-        if (!IsAdmin && cfg.AdminMode && TaskExists()) {
+        // LINKWATCH_NO_TASK: test runs (tools\simulate.ps1) stay in this process instead of handing over to the task
+        if (!IsAdmin && cfg.AdminMode && Environment.GetEnvironmentVariable("LINKWATCH_NO_TASK") == null && TaskExists()) {
             Run("schtasks.exe", "/run /tn \"" + TaskName + "\"");
             if (!hidden) SignalShow(20000);
             return 0;
@@ -202,7 +203,7 @@ static class App {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             // terms of use: accepted once per terms version, otherwise the app does not start
-            if (cfg.AcceptedTerms != AboutInfo.TermsVersion) {
+            if (cfg.AcceptedTerms != AboutInfo.TermsVersion && Environment.GetEnvironmentVariable("LINKWATCH_SIMULATE") == null) {   // test runs skip it
                 using (var tf = new TermsForm(Icon.ExtractAssociatedIcon(ExePath)))
                     if (tf.ShowDialog() != DialogResult.OK) return 0;
                 cfg.AcceptedTerms = AboutInfo.TermsVersion; cfg.Save();
@@ -479,7 +480,7 @@ class MainForm : Form {
         picCable.Invalidate();
         string t = usb.Connected ? usb.Speed : "Quest not connected by cable";
         lblConn.Text = "Link: " + t;
-        lblConn.ForeColor = t.Contains("USB 3") ? Color.LimeGreen : Regex.IsMatch(t, "USB [12]") ? Color.Orange : Color.Gray;
+        lblConn.ForeColor = t.StartsWith("USB 3") ? Color.LimeGreen : Regex.IsMatch(t, "USB [12]") ? Color.Orange : Color.Gray;
     }
 
     // ---------- rates ----------
@@ -585,9 +586,9 @@ class MainForm : Form {
             g.DrawString("not connected by cable", UiFont, Brushes.Gray, new RectangleF(84, cy + 8, w - 168, 16), sf);
             return;
         }
-        Color col = usb.Speed.Contains("USB 3") ? Color.LimeGreen : Regex.IsMatch(usb.Speed, "USB [12]") ? Color.Orange : Color.Gray;
+        Color col = usb.Speed.StartsWith("USB 3") ? Color.LimeGreen : Regex.IsMatch(usb.Speed, "USB [12]") ? Color.Orange : Color.Gray;
         float x1 = 84, x2 = w - 84;
-        using (var cable = new Pen(col, 4)) g.DrawLine(cable, x1 + 14, cy, x2 - 12, cy);
+        using (var cable = new Pen(col, 4)) g.DrawLine(cable, x1 + 14, cy, usb.DevicePort == "fixed" ? rx - 26 : x2 - 12, cy);   // Rift: cable runs into the headset
         using (var plugPen = new Pen(col, 3))
         using (var plugBrush = new SolidBrush(Color.FromArgb(70, 70, 70)))
         using (var colBrush = new SolidBrush(col)) {
@@ -637,7 +638,7 @@ class MainForm : Form {
     static void LogLinkChange(UsbLink before, UsbLink now) {
         if (before == null) { if (now.Connected) History.Event("usb-on", now.Device + " connected: " + now.Speed + " on " + now.PcPort); return; }
         if (before.Connected && !now.Connected) History.Event("usb-off", before.Device + " disconnected");
-        else if (!before.Connected && now.Connected) History.Event(now.Speed.Contains("USB 3") ? "usb-on" : "usb-speed", now.Device + " connected: " + now.Speed + " on " + now.PcPort);
+        else if (!before.Connected && now.Connected) History.Event(now.Speed.StartsWith("USB 3") ? "usb-on" : "usb-speed", now.Device + " connected: " + now.Speed + " on " + now.PcPort);
         else if (now.Connected && before.Speed != now.Speed) History.Event("usb-speed", "Link speed changed: " + before.Speed + " -> " + now.Speed);
     }
     // clock glyph for the History button, same 2 px stroke as the other icons

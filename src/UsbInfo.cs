@@ -98,7 +98,18 @@ public static class UsbInfo {
         return char.ToUpper(model[0]) + model.Substring(1);
     }
 
+    // Test hook: LINKWATCH_SIMULATE="reported name;speed text;PC port;hub1,hub2" pretends that headset is plugged in
+    static UsbLink Simulated(string spec) {
+        var p = (spec + ";;;").Split(';');
+        var link = new UsbLink { Connected = true, Device = ModelName(p[0]), Speed = p[1], PcPort = p[2] == "" ? "USB-A" : p[2] };
+        if (link.Device.StartsWith("Rift")) link.DevicePort = "fixed";
+        foreach (var h in p[3].Split(',')) if (h.Trim() != "") link.Hubs.Add(h.Trim());
+        return link;
+    }
+
     public static UsbLink Get() {
+        string sim = Environment.GetEnvironmentVariable("LINKWATCH_SIMULATE");
+        if (!string.IsNullOrEmpty(sim)) return Simulated(sim);
         var link = new UsbLink();
         int dev = FindQuest(); if (dev == 0) return link;
         link.Connected = true;
