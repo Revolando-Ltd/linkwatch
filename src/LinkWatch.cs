@@ -740,10 +740,20 @@ class MainForm : Form {
 #if DEVTOOLS
     // ---------- screenshots for the README (dev builds only) ----------
     public static EventWaitHandle ShotEvent;
+    [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
+    [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out RECT r, int size);
     static void CaptureWindow(Form f, string file) {
         f.TopMost = true; f.Activate(); f.Refresh(); Application.DoEvents(); Thread.Sleep(400);
-        using (var b = new Bitmap(f.Width, f.Height)) {
-            using (var g = Graphics.FromImage(b)) g.CopyFromScreen(f.Location, Point.Empty, f.Size);
+        // only the visible window: its real frame (without the invisible resize border) with rounded, transparent
+        // corners, so nothing of the desktop behind it ends up in the picture
+        RECT r; DwmGetWindowAttribute(f.Handle, 9, out r, 16);   // DWMWA_EXTENDED_FRAME_BOUNDS
+        int w = r.Right - r.Left, h = r.Bottom - r.Top;
+        using (var shot = new Bitmap(w, h))
+        using (var b = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb)) {
+            using (var g = Graphics.FromImage(shot)) g.CopyFromScreen(r.Left, r.Top, 0, 0, new Size(w, h));
+            using (var g = Graphics.FromImage(b))
+            using (var brush = new TextureBrush(shot))
+            using (var path = RoundRect(0, 0, w, h, 8)) { g.SmoothingMode = SmoothingMode.AntiAlias; g.Clear(Color.Transparent); g.FillPath(brush, path); }
             b.Save(Path.Combine(Path.GetTempPath(), file), System.Drawing.Imaging.ImageFormat.Png);
         }
         f.TopMost = false;

@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/main.png" alt="LinkWatch main window" width="513">
+  <img src="docs/main.png" alt="LinkWatch main window" width="499">
 </p>
 
 ---
@@ -115,7 +115,7 @@ If your Link image is blurry, stutters or drops, check the cable before anything
 - **Small and self-contained**: a single exe of about 70 KB, built with the C# compiler that ships with Windows. No installer, no runtime to download, no telemetry.
 
 <p align="center">
-  <img src="docs/history.png" alt="History window" width="776">
+  <img src="docs/history.png" alt="History window" width="762">
 </p>
 
 ## Download and run
@@ -124,7 +124,7 @@ If your Link image is blurry, stutters or drops, check the cable before anything
 2. Put it anywhere, for example `C:\Tools\LinkWatch\`, and run it.
 3. Click the **gear** icon, tick **Run as administrator (asks only once)** and press OK. Approve the Windows prompt.
 
-   <img src="docs/settings.png" alt="Settings" width="366">
+   <img src="docs/settings.png" alt="Settings" width="352">
    This is needed for the USB data rate (ETW needs admin) and for restarting the service without a prompt.
 4. Optional: keep **Start with Windows** ticked so it lives in your tray.
 
