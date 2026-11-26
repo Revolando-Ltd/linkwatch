@@ -88,6 +88,16 @@ public static class UsbInfo {
         }
     }
 
+    // The headset names itself over USB (e.g. "Quest 3", "Oculus Quest 2", "Meta Quest Pro").
+    // Keep the model, drop the brand prefix, so every model reads the same way: "Quest 2", "Quest 3S", "Quest Pro".
+    static string ModelName(string reported) {
+        if (string.IsNullOrEmpty(reported) || reported.Contains("Composite")) return "Meta Quest";
+        var m = Regex.Match(reported, @"(Quest|Rift)(\s*\w+)?", RegexOptions.IgnoreCase);
+        if (!m.Success) return reported.Trim();
+        string model = m.Value.Trim();
+        return char.ToUpper(model[0]) + model.Substring(1);
+    }
+
     public static UsbLink Get() {
         var link = new UsbLink();
         int dev = FindQuest(); if (dev == 0) return link;
@@ -102,8 +112,9 @@ public static class UsbInfo {
             cur = p;
         }
         link.PcPort = pcPort ?? PortType(HubPath(hub), port);
-        string name = BusDesc(dev);
-        link.Device = string.IsNullOrEmpty(name) || name.Contains("Composite") ? "Meta Quest" : name;
+        link.Device = ModelName(BusDesc(dev));
+        // Rift / Rift S have a cable fixed to the headset: no plug on that end
+        if (link.Device.StartsWith("Rift")) link.DevicePort = "fixed";
         link.Speed = Speed(HubPath(hub), port);
         return link;
     }

@@ -592,9 +592,9 @@ class MainForm : Form {
         using (var plugBrush = new SolidBrush(Color.FromArgb(70, 70, 70)))
         using (var colBrush = new SolidBrush(col)) {
             DrawPlug(g, x1, cy, usb.PcPort, plugPen, plugBrush);
-            DrawPlug(g, x2, cy, usb.DevicePort, plugPen, plugBrush);
+            if (usb.DevicePort != "fixed") DrawPlug(g, x2, cy, usb.DevicePort, plugPen, plugBrush);   // Rift: cable is part of the headset
             g.DrawString(usb.PcPort, UiFont, Brushes.Gray, x1 - 18, cy + 10);
-            g.DrawString(usb.DevicePort, UiFont, Brushes.Gray, x2 - 20, cy + 10);
+            if (usb.DevicePort != "fixed") g.DrawString(usb.DevicePort, UiFont, Brushes.Gray, x2 - 20, cy + 10);
             if (usb.Hubs.Count > 0) {
                 float mx = (x1 + x2) / 2;
                 g.FillRectangle(plugBrush, mx - 22, cy - 8, 44, 16); g.DrawRectangle(plugPen, mx - 22, cy - 8, 44, 16);
