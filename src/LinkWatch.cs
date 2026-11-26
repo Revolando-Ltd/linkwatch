@@ -716,7 +716,12 @@ class MainForm : Form {
     }
     void TakeScreenshots() {
         ShowMain(); CaptureWindow(this, "LinkWatch_main.png");
-        ShowHistory(); CaptureWindow(historyForm, "LinkWatch_history.png");
+        ShowHistory(); historyForm.SetRange(1);
+        // keep the two windows apart so neither covers the other in the capture
+        var area = Screen.FromControl(this).WorkingArea;
+        int hx = Right + 16 + historyForm.Width <= area.Right ? Right + 16 : Math.Max(area.Left, Left - 16 - historyForm.Width);
+        historyForm.Location = new Point(hx, Math.Max(area.Top, Math.Min(Top, area.Bottom - historyForm.Height)));
+        CaptureWindow(historyForm, "LinkWatch_history.png");
         // settings is modal: capture and cancel it from a timer once it is on screen
         var t = new System.Windows.Forms.Timer { Interval = 900 };
         t.Tick += (s, e) => { t.Stop(); var d = Application.OpenForms.Cast<Form>().FirstOrDefault(f => f.Text == "Settings"); if (d != null) { CaptureWindow(d, "LinkWatch_settings.png"); d.DialogResult = DialogResult.Cancel; } };

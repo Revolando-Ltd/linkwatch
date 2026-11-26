@@ -107,6 +107,7 @@ public class HistoryForm : Form {
     DateTime from, to;
     List<MinuteRow> rows = new List<MinuteRow>(); List<EventRow> events = new List<EventRow>();
     EventRow selected; int hoverX = -1;
+    HashSet<DateTime> startTimes = new HashSet<DateTime>();   // seconds at which LinkWatch started
     const int PadL = 8, PadR = 8, PadT = 22, PadB = 22;
 
     public HistoryForm() {
@@ -156,15 +157,18 @@ public class HistoryForm : Form {
         list.SelectedIndexChanged += (s, e) => { selected = list.SelectedItems.Count > 0 ? (EventRow)list.SelectedItems[0].Tag : null; graph.Invalidate(); };
         Controls.Add(list);
         // last column fills the rest of the header, so no blank header strip is left
-        Resize += (s, e) => { list.Columns[1].Width = -2; };
-        Shown += (s, e) => { list.Columns[1].Width = -2; };
+        Action fit = () => { list.Columns[1].Width = Math.Max(200, list.ClientSize.Width - list.Columns[0].Width - 4); };
+        Resize += (s, e) => fit();
+        Shown += (s, e) => fit();
         Reload();
     }
 
+    public void SetRange(double hours) { range = TimeSpan.FromHours(hours); Reload(); }
     void Reload() {
         History.Flush();
         to = DateTime.Now; from = to - range;
         rows = History.Rates(from, to); events = History.Events(from, to);
+        startTimes = new HashSet<DateTime>(events.Where(e => e.Kind == "app").Select(e => e.T));
         foreach (var b in rangeButtons) { bool on = (double)b.Tag == range.TotalHours; b.BackColor = on ? Color.LightGreen : BtnOff; b.ForeColor = on ? Color.Black : Color.Gainsboro; }
         list.BeginUpdate(); list.Items.Clear();
         foreach (var ev in events.OrderByDescending(e => e.T)) {
@@ -219,22 +223,29 @@ public class HistoryForm : Form {
             using (var pen = new Pen(keys[k].Item2, k == 0 ? 1f : 1.6f)) {
                 var seg = new List<PointF>();
                 Action drawSeg = () => { if (seg.Count > 1) g.DrawLines(pen, seg.ToArray()); else if (seg.Count == 1) g.DrawRectangle(pen, seg[0].X, seg[0].Y, 1, 1); seg.Clear(); };
+                // one sample per minute can be many pixels apart (1 h view): join neighbours, and break the line only
+                // where more than ~2.5 minutes are missing (LinkWatch was not running)
+                int maxGap = Math.Max(2, (int)Math.Ceiling(2.5 * data[k].Length / range.TotalMinutes)), last = -1;
                 for (int i = 0; i < data[k].Length; i++) {
                     double v = data[k][i];
-                    if (double.IsNaN(v)) { drawSeg(); continue; }   // gap: monitor was not running
-                    seg.Add(new PointF(PadL + i, (float)(PadT + plotH - plotH * v / peak)));
+                    if (double.IsNaN(v)) continue;
+                    if (last >= 0 && i - last > maxGap) drawSeg();
+                    seg.Add(new PointF(PadL + i, (float)(PadT + plotH - plotH * v / peak))); last = i;
                 }
                 drawSeg();
             }
         }
         // event markers
         foreach (var ev in events) {
+            // start/close, and the "all fine" states recorded at each start, stay in the list; on the graph they would
+            // only clutter. Real changes (service down, unplugged, speed change, restart) are always drawn.
+            if (ev != selected && (ev.Kind == "app" || ((ev.Kind == "service-up" || ev.Kind == "usb-on") && startTimes.Contains(ev.T)))) continue;
             float x = X(ev.T, w);
             using (var p = new Pen(History.KindColor(ev.Kind), ev == selected ? 3f : 1f) { DashStyle = ev == selected ? DashStyle.Solid : DashStyle.Dot })
                 g.DrawLine(p, x, PadT, x, h - PadB);
         }
         if (hoverX >= PadL && hoverX <= w - PadR) using (var p = new Pen(Color.FromArgb(110, 110, 110))) g.DrawLine(p, hoverX, PadT, hoverX, h - PadB);
-        g.DrawString("peak: " + MainForm.Rate(peak) + "    green: sent to Quest (avg, light = 1 s peak)   purple: received from Quest (~)" + (chkWifi.Checked ? "   blue/orange: Wi-Fi" : ""),
+        g.DrawString("peak: " + MainForm.Rate(peak) + "    green: sent to Quest (avg, light = 1 s peak)   purple: received from Quest" + (chkWifi.Checked ? "   blue/orange: Wi-Fi" : ""),
             UiFont, Brushes.Gray, PadL, 3);
         if (rows.Count == 0) g.DrawString("No data recorded in this range yet.", UiFont, Brushes.Gray, w / 2 - 110, h / 2 - 8);
     }
@@ -245,7 +256,7 @@ public class HistoryForm : Form {
         var t = from + TimeSpan.FromSeconds((to - from).TotalSeconds * (hoverX - PadL) / (w - PadL - PadR));
         var r = rows.OrderBy(x => Math.Abs((x.T - t).TotalSeconds)).First();
         if (Math.Abs((r.T - t).TotalMinutes) > Math.Max(2, range.TotalMinutes / (w - PadL - PadR) * 2)) { hover.Text = t.ToString("dd MMM HH:mm") + "   no data"; return; }
-        hover.Text = r.T.ToString("dd MMM HH:mm") + "   sent " + MainForm.Rate(r.Out) + " (peak " + MainForm.Rate(r.OutPeak) + ")\r\nreceived ~" + MainForm.Rate(r.In) +
+        hover.Text = r.T.ToString("dd MMM HH:mm") + "   sent " + MainForm.Rate(r.Out) + " (peak " + MainForm.Rate(r.OutPeak) + ")\r\nreceived " + MainForm.Rate(r.In) +
             "   Wi-Fi " + MainForm.Rate(r.Rx) + " / " + MainForm.Rate(r.Tx);
     }
 }
