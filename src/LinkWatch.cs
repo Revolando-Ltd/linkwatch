@@ -1,4 +1,4 @@
-// LinkWatch: watches OVRService, restarts it with one click, draws the Quest cable and graphs the
+﻿// LinkWatch: watches OVRService, restarts it with one click, draws the Quest cable and graphs the
 // Quest Link USB data rate with Windows' own ETW, plus optional Wi-Fi traffic. No third-party code.
 // Closing the window hides it to the tray; Exit in the tray menu quits.
 // Args: --hidden (start in tray)  --restart-service  --apply-task (internal, elevated helpers)
@@ -355,7 +355,7 @@ class MainForm : Form {
     readonly Icon iconOrange = Dot(Color.Orange);
     Panel secUsb, secNet;
     PictureBox picCable, graphUsb, graphNet;
-    ComboBox cmbNet;
+    Button btnNet; List<string> netNames = new List<string>(); int netIdx;
     NotifyIcon tray;
     System.Windows.Forms.Timer timerSvc, timerRate;
     UsbLink usb = new UsbLink();
@@ -458,13 +458,15 @@ class MainForm : Form {
         Legend(secNet, "Sent", colors["tx"], 412, null, ">");
         graphNet = Graph(secNet, new[] { "rx", "tx" }, 30, 120);
         lblNetRate = L("", 8, 156, 475, 20); secNet.Controls.Add(lblNetRate);
-        cmbNet = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat, Location = new Point(150, 4), Size = new Size(140, 22), BackColor = BgPanel, ForeColor = Color.Gainsboro };
-        foreach (var a in Adapters()) cmbNet.Items.Add(a.Name);
-        if (cmbNet.Items.Count > 0) cmbNet.SelectedIndex = 0;
-        cmbNet.Visible = cmbNet.Items.Count > 1;
-        netTitle.Text = cmbNet.Items.Count == 1 ? "Network (" + cmbNet.Items[0] + ")" : "Network";
-        cmbNet.SelectedIndexChanged += (s, e) => { havePrev = false; series["rx"].Clear(); series["tx"].Clear(); };
-        secNet.Controls.Add(cmbNet);
+        // adapter switch: a dark button that steps to the next adapter on each click (no native drop-down, so nothing white)
+        foreach (var a in Adapters()) netNames.Add(a.Name);
+        btnNet = new Button { FlatStyle = FlatStyle.Flat, Location = new Point(150, 3), Size = new Size(140, 24), BackColor = BtnOff, ForeColor = Color.Gainsboro, TextAlign = ContentAlignment.MiddleCenter };
+        btnNet.FlatAppearance.BorderColor = Color.FromArgb(90, 90, 90);
+        btnNet.Text = netNames.Count > 0 ? netNames[0] + "  \u21C4" : "";
+        btnNet.Visible = netNames.Count > 1;
+        netTitle.Text = netNames.Count == 1 ? "Network (" + netNames[0] + ")" : "Network";
+        btnNet.Click += (s, e) => { netIdx = (netIdx + 1) % netNames.Count; btnNet.Text = netNames[netIdx] + "  \u21C4"; havePrev = false; series["rx"].Clear(); series["tx"].Clear(); };
+        secNet.Controls.Add(btnNet);
 
         Controls.AddRange(new Control[] { lblStatus, lblTime, btnWifi, btnRestart, btnHistory, btnSettings, secUsb, secNet });
         btnHistory.Click += (s, e) => ShowHistory();
@@ -576,12 +578,19 @@ class MainForm : Form {
             if (answer != DialogResult.Yes) return;
         }
         History.Event("restart", "Re-Start pressed");
-        tray.Icon = iconYellow; Icon = iconYellow; lblStatus.Text = "OVRService: restarting..."; lblStatus.ForeColor = Color.Gold; Refresh();
-        bool ok;
-        if (App.IsAdmin) { try { App.RestartService(); ok = true; } catch { ok = false; } }
-        else ok = App.RunElevated("--restart-service");
-        if (!ok) tray.ShowBalloonTip(5000, App.Name, "Restart failed or was cancelled.", ToolTipIcon.Warning);
-        CheckService();
+        tray.Icon = iconYellow; Icon = iconYellow; lblStatus.Text = "OVRService: restarting..."; lblStatus.ForeColor = Color.Gold;
+        btnRestart.Enabled = false;
+        // stopping/starting the service can take many seconds: do it off the UI thread so the window keeps painting
+        new System.Threading.Thread(() => {
+            bool ok;
+            if (App.IsAdmin) { try { App.RestartService(); ok = true; } catch { ok = false; } }
+            else ok = App.RunElevated("--restart-service");
+            BeginInvoke((Action)(() => {
+                btnRestart.Enabled = true;
+                if (!ok) tray.ShowBalloonTip(5000, App.Name, "Restart failed or was cancelled.", ToolTipIcon.Warning);
+                CheckService();
+            }));
+        }) { IsBackground = true }.Start();
     }
 
     void UpdateConn() {
@@ -609,7 +618,7 @@ class MainForm : Form {
         if (ShotEvent != null && ShotEvent.WaitOne(0)) TakeScreenshots();
 #endif
         if (++tick % 5 == 0) UpdateConn();   // cable changes show up within 5 s
-        var nic = Adapters().FirstOrDefault(n => n.Name == (string)cmbNet.SelectedItem);
+        var nic = Adapters().FirstOrDefault(n => n.Name == (netNames.Count > 0 ? netNames[netIdx] : null));
         double rxNow = 0, txNow = 0;
         if (nic != null) { var st = nic.GetIPStatistics(); rxNow = st.BytesReceived; txNow = st.BytesSent; }
         var now = DateTime.UtcNow;
