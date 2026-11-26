@@ -260,7 +260,7 @@ class MainForm : Form {
         lblTime = L("", 12, 38, 196, 18); lblTime.ForeColor = Color.Gray;
         btnWifi = B("Wi-Fi", 214, 80); btnRestart = B("Re-Start", 300, 96);
         btnHistory = B("", 402, 43); btnHistory.Paint += (s, e) => DrawClock(e.Graphics, btnHistory.Width / 2f, btnHistory.Height / 2f);
-        btnSettings = B("âš™", 452, 43); btnSettings.Font = new Font("Segoe UI Symbol", 14f);
+        btnSettings = B("\u2699", 452, 43); btnSettings.Font = new Font("Segoe UI Symbol", 14f);
 
         Label t;
         secUsb = Section("USB cable (Quest Link)", 62, 288, out t);
