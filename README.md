@@ -129,6 +129,10 @@ If your Link image is blurry, stutters or drops, check the cable before anything
 
 Closing the window hides it to the tray. Use **Exit** in the tray menu to quit.
 
+### Updates
+
+LinkWatch never checks for updates by itself (it makes no network connections at all). To hear about new versions, click **Watch → Custom → Releases** at the top of this page and GitHub will notify you. To update, exit LinkWatch from the tray, replace `LinkWatch.exe` with the new one in the same folder and start it again: your settings, history, admin mode and autostart all carry over.
+
 > Windows SmartScreen may warn about an unknown publisher, because the exe is not code-signed. You can check the source and build it yourself in a few seconds, see below.
 
 ## Build it yourself
