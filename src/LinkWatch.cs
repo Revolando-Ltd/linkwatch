@@ -33,7 +33,7 @@ using System.Reflection;
 
 static class AboutInfo {
     public const string Version = "1.0.0 beta 1";
-    public const string TermsVersion = "1";   // bump when the terms text changes, users are asked again
+    public const string TermsVersion = "2";   // bump when the terms text changes, users are asked again
     public const string Author = "Aydın Özon";
     public const string Company = "REVOLANDO LTD", CompanyUrl = "https://revolando.com";
     public const string RepoUrl = "https://github.com/Revolando-Ltd/linkwatch";
@@ -49,7 +49,8 @@ class TermsForm : Form {
         "  - Re-Start stops and starts the Windows service OVRService. This disconnects any running Quest Link session and VR application.\r\n" +
         "  - It reads USB transfer events through Windows' own Event Tracing (ETW). It does not install drivers and does not change USB settings.\r\n" +
         "  - In administrator mode it creates a Windows scheduled task that starts it with administrator rights.\r\n" +
-        "  - It stores settings and history only on this PC (%APPDATA%\\LinkWatch). Nothing is sent anywhere.\r\n\r\n" +
+        "  - It stores settings and history only on this PC (%APPDATA%\\LinkWatch).\r\n\r\n" +
+        "Privacy: LinkWatch does not collect, store or transmit any personal data or usage data. It has no telemetry, no analytics, no accounts, no update check and makes no network connections. The only time anything opens on the internet is when you click a link in the About window, which opens your own browser.\r\n\r\n" +
         "To the maximum extent permitted by law, REVOLANDO LTD and the authors are not liable for any damage or loss arising from the use of LinkWatch, including interrupted sessions, lost work, data loss or hardware issues. Nothing in these terms limits liability that cannot be limited by law.\r\n\r\n" +
         "License: PolyForm Noncommercial 1.0.0. Free for noncommercial use. Commercial use, sale or resale requires a license from REVOLANDO LTD (revolando.com).\r\n\r\n" +
         "LinkWatch is not affiliated with, endorsed by or sponsored by Meta Platforms, Inc. Meta, Meta Quest, Quest and Oculus are trademarks of Meta Platforms, Inc.";

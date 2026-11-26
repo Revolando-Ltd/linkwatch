@@ -166,6 +166,10 @@ Open the gear menu, untick **Run as administrator** and **Start with Windows** (
 Issues and pull requests are welcome. Ideas that would fit well: support for other PC VR headsets, Air Link specific stats, a dark/light theme switch, translations.
 
 LinkWatch is **free for personal and other noncommercial use**. You can read the code, change it and share your changes for noncommercial purposes. Two things go with every copy, original or modified: the [LICENSE](LICENSE) and the [NOTICE](NOTICE) (which credits REVOLANDO LTD).
+## Privacy
+
+LinkWatch **does not collect, store or transmit any personal or usage data**. No telemetry, no analytics, no accounts, no update check, no network connections at all; the source contains no networking code. Settings and history stay in `%APPDATA%\LinkWatch` on your PC and are deleted with that folder. The only thing that ever opens the internet is a link you click in the About window, in your own browser.
+
 ## Disclaimer
 
 LinkWatch is provided **"as is", without warranty of any kind**, and you use it at your own risk. On first start it shows these terms and only runs after you accept them. It restarts the OVRService Windows service when you ask it to (which drops any live Link session), reads USB events through Windows' own ETW, and in administrator mode registers a scheduled task. It installs no drivers and sends no data anywhere. To the maximum extent permitted by law, REVOLANDO LTD and the authors are not liable for any damage or loss arising from its use. This is a **beta**: it has been tested on Windows 11 with a Meta Quest 3; please [open an issue](../../issues) if something behaves differently on your setup.
