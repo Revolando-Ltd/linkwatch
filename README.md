@@ -5,8 +5,9 @@
 <h1 align="center">LinkWatch</h1>
 
 <p align="center">
-  <b>Keep Quest Link alive, see your cable, measure the real USB data rate.</b><br>
-  A tiny Windows tray app for Meta Quest + PC VR. One 70&nbsp;KB exe, no drivers, no third-party code.
+  <b>Is your Quest Link cable really giving you USB 3? Find out in one glance.</b><br>
+  The Quest Link diagnostic tool for Windows: cable speed, real data rate, history, and a one-click service fix.<br>
+  One 70&nbsp;KB exe. No installer, no drivers, no runtime, no third-party code.
 </p>
 
 <p align="center">
@@ -21,6 +22,57 @@
 </p>
 
 ---
+
+## What LinkWatch does that tweak tools don't
+
+Most Quest Link utilities help you **change settings**: bitrate, super sampling, profiles. LinkWatch answers a different question: **is the connection itself healthy?** It does not guess from settings, it reads what Windows actually negotiated and what actually goes through the cable.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 🔌 Catches the silent USB 2.0 fallback
+A Quest 3 on a "USB 3" cable can quietly run at **480 Mbps** for months. LinkWatch reads the negotiated speed straight from the USB hub driver and warns you when the headset *could* do USB 3 but the link did not: **check cable or port**. Nothing else on the tray tells you this.
+
+</td>
+<td width="50%" valign="top">
+
+### 🖥️➖🥽 Draws your actual cable
+PC on one side, headset on the other: the PC-side connector (**USB-A or USB-C**), any **hub** in the path, and the link speed, colour-coded. Plug it the other way round, move it to another port, and watch the picture change within 5 seconds.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 📈 Measures real traffic, not settings
+A bitrate slider tells you what you asked for. LinkWatch shows **what actually flows**: bytes per second to the headset (exact) and back (approximate), from Windows' own USB 3 driver events. ~200 Mbps in a live VR session, ~4 Mbps when Link sits idle.
+
+</td>
+<td valign="top">
+
+### 🕒 Remembers what happened
+Link dropped during last night's session? The **history** view keeps minute-by-minute rates and every event: service stopped, headset unplugged, **speed dropped from USB 3 to USB 2**, restarts. Up to a year if you want; 30 days by default.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🪶 Tiny and dependency-free
+**70 KB**, a single exe. No installer, no .NET runtime download, no ADB, no kernel driver, no telemetry. Built with the compiler that ships inside Windows; you can rebuild it in seconds.
+
+</td>
+<td valign="top">
+
+### 🛟 Fixes the classic Link hang
+When OVRService stops or Link refuses to connect, the tray turns red and **one click** restarts the service, with no admin prompt after the one-time setup.
+
+</td>
+</tr>
+</table>
+
+Use it next to your favourite tweak tool: they change the settings, LinkWatch tells you whether the pipe underneath can deliver them.
 
 ## Why this exists
 
