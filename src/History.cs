@@ -7,14 +7,14 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 
-// One-minute averages and events, one CSV per day under %APPDATA%\OVRMonitor\history, kept 30 days.
+// One-minute averages and events, one CSV per day under %APPDATA%\LinkWatch\history, kept 30 days.
 public class MinuteRow { public DateTime T; public double Out, OutPeak, In, Rx, Tx; }
 public class EventRow { public DateTime T; public string Kind, Text; }
 
 public static class History {
     public static int KeepDays = 30;   // set from settings
     static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
-    public static string Dir { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OVRMonitor", "history"); } }
+    public static string Dir { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LinkWatch", "history"); } }
 
     // current minute being collected
     static DateTime curMin = DateTime.MinValue;
@@ -110,7 +110,7 @@ public class HistoryForm : Form {
     const int PadL = 8, PadR = 8, PadT = 22, PadB = 22;
 
     public HistoryForm() {
-        Text = "OVR Monitor - History"; Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); ClientSize = new Size(760, 520); MinimumSize = new Size(560, 420);
+        Text = "LinkWatch - History"; Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); ClientSize = new Size(760, 520); MinimumSize = new Size(560, 420);
         BackColor = BgForm; ForeColor = Color.Gainsboro; Font = UiFont; StartPosition = FormStartPosition.CenterParent; ShowInTaskbar = false;
         HandleCreated += (s, e) => MainForm.DarkTitle(this);
 

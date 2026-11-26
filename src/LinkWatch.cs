@@ -1,4 +1,4 @@
-// OVR Monitor: watches OVRService, restarts it with one click, draws the Quest cable and graphs the
+// LinkWatch: watches OVRService, restarts it with one click, draws the Quest cable and graphs the
 // Quest Link USB data rate with Windows' own ETW, plus optional Wi-Fi traffic. No third-party code.
 // Closing the window hides it to the tray; Exit in the tray menu quits.
 // Args: --hidden (start in tray)  --restart-service  --apply-task (internal, elevated helpers)
@@ -22,8 +22,8 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 
 static class App {
-    public const string Name = "OVR Monitor", TaskName = "OVR Monitor", ServiceName = "OVRService";
-    public const string ShowEventName = @"Local\OVRMonitor_Show", ShotEventName = @"Local\OVRMonitor_Shot";
+    public const string Name = "LinkWatch", TaskName = "LinkWatch", ServiceName = "OVRService";
+    public const string ShowEventName = @"Local\LinkWatch_Show", ShotEventName = @"Local\LinkWatch_Shot";
     public static string ExePath { get { return Application.ExecutablePath; } }
     public static bool IsAdmin { get { return new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator); } }
 
@@ -49,6 +49,8 @@ static class App {
 
     // Creates (with or without a logon trigger) or deletes the elevated task. Must run as admin.
     public static int ApplyTask(bool want, bool logon) {
+        // remove the task left by the old name ("OVR Monitor"), if any
+        if (Run("schtasks.exe", "/query /tn \"OVR Monitor\"") == 0) Run("schtasks.exe", "/delete /tn \"OVR Monitor\" /f");
         if (!want) return TaskExists() ? Run("schtasks.exe", "/delete /tn \"" + TaskName + "\" /f") : 0;
         string user = Environment.UserDomainName + "\\" + Environment.UserName;
         string trig = logon ? "<LogonTrigger><Enabled>true</Enabled><UserId>" + user + "</UserId></LogonTrigger>" : "";
@@ -59,7 +61,7 @@ static class App {
             "<Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>" +
             "<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries><ExecutionTimeLimit>PT0S</ExecutionTimeLimit><Enabled>true</Enabled></Settings>" +
             "<Actions Context=\"Author\"><Exec><Command>" + System.Security.SecurityElement.Escape(ExePath) + "</Command><Arguments>--hidden</Arguments></Exec></Actions></Task>";
-        string tmp = Path.Combine(Path.GetTempPath(), "ovrmonitor_task.xml");
+        string tmp = Path.Combine(Path.GetTempPath(), "linkwatch_task.xml");
         File.WriteAllText(tmp, xml, Encoding.Unicode);
         int r = Run("schtasks.exe", "/create /tn \"" + TaskName + "\" /xml \"" + tmp + "\" /f");
         File.Delete(tmp);
@@ -78,8 +80,14 @@ static class App {
     [STAThread]
     static int Main(string[] args) {
         bool hidden = args.Contains("--hidden");
+        // the app used to be called "OVR Monitor": carry its settings and history over once
+        try {
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string oldDir = Path.Combine(appData, "OVRMonitor"), newDir = Path.Combine(appData, "LinkWatch");
+            if (Directory.Exists(oldDir) && !Directory.Exists(newDir)) Directory.Move(oldDir, newDir);
+        } catch { }
         if (args.Contains("--restart-service")) { try { RestartService(); return 0; } catch { return 1; } }
-        // --screenshot: ask the running instance to save window captures to %TEMP%\OVRMonitor_*.png
+        // --screenshot: ask the running instance to save window captures to %TEMP%\LinkWatch_*.png
         if (args.Contains("--screenshot")) {
             try { using (var e = EventWaitHandle.OpenExisting(ShotEventName)) { e.Set(); return 0; } } catch { return 1; }
         }
@@ -118,7 +126,7 @@ class Settings {
     public string Measure = "ETW";
     public bool AdminMode = false, Autostart = true, Wifi = false;
     public int CheckSec = 30, HistoryDays = 30;
-    static string Dir { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OVRMonitor"); } }
+    static string Dir { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LinkWatch"); } }
     static string FilePath { get { return Path.Combine(Dir, "settings.json"); } }
 
     public static Settings Load() {
@@ -308,7 +316,7 @@ class MainForm : Form {
         timerRate.Tick += (s, e) => UpdateRates();
 
         History.KeepDays = cfg.HistoryDays; History.Cleanup();
-        History.Event("app", "OVR Monitor started (" + (App.IsAdmin ? "administrator" : "normal user") + ")");
+        History.Event("app", "LinkWatch started (" + (App.IsAdmin ? "administrator" : "normal user") + ")");
         CheckService(); UpdateConn(); StartUsb();
         timerSvc.Start(); timerRate.Start();
         if (!hidden) ShowMain();
@@ -316,7 +324,7 @@ class MainForm : Form {
 
     void ShowMain() { Show(); WindowState = FormWindowState.Normal; Activate(); }
     void Quit() {
-        quitting = true; History.Flush(); History.Event("app", "OVR Monitor closed"); etw.Stop(); timerSvc.Stop(); timerRate.Stop(); tray.Visible = false;
+        quitting = true; History.Flush(); History.Event("app", "LinkWatch closed"); etw.Stop(); timerSvc.Stop(); timerRate.Stop(); tray.Visible = false;
         Close(); Context.ExitThread();
     }
     void StartUsb() { etw.Stop(); if (cfg.Measure == "ETW" && App.IsAdmin) etw.Start(); }
@@ -517,11 +525,11 @@ class MainForm : Form {
         f.TopMost = false;
     }
     void TakeScreenshots() {
-        ShowMain(); CaptureWindow(this, "OVRMonitor_main.png");
-        ShowHistory(); CaptureWindow(historyForm, "OVRMonitor_history.png");
+        ShowMain(); CaptureWindow(this, "LinkWatch_main.png");
+        ShowHistory(); CaptureWindow(historyForm, "LinkWatch_history.png");
         // settings is modal: capture and cancel it from a timer once it is on screen
         var t = new System.Windows.Forms.Timer { Interval = 900 };
-        t.Tick += (s, e) => { t.Stop(); var d = Application.OpenForms.Cast<Form>().FirstOrDefault(f => f.Text == "Settings"); if (d != null) { CaptureWindow(d, "OVRMonitor_settings.png"); d.DialogResult = DialogResult.Cancel; } };
+        t.Tick += (s, e) => { t.Stop(); var d = Application.OpenForms.Cast<Form>().FirstOrDefault(f => f.Text == "Settings"); if (d != null) { CaptureWindow(d, "LinkWatch_settings.png"); d.DialogResult = DialogResult.Cancel; } };
         t.Start(); ShowSettings();
     }
 
@@ -553,6 +561,7 @@ class MainForm : Form {
         using (var k = Registry.CurrentUser.OpenSubKey(RunKey, true)) {
             if (on) k.SetValue(App.Name, "\"" + App.ExePath + "\" --hidden");
             else if (k.GetValue(App.Name) != null) k.DeleteValue(App.Name);
+            if (k.GetValue("OVR Monitor") != null) k.DeleteValue("OVR Monitor");   // old name
         }
         // shortcut left by the old PowerShell version
         string lnk = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "OVR Izleyici.lnk");

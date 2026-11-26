@@ -9,7 +9,7 @@ using System.Threading;
 //   OUT (PC -> device): exact transferred size.
 //   IN  (device -> PC): requested buffer size, so it can overstate (about 10-15 % under load).
 public class EtwUsb {
-    const string SessionName = "OvrMonitorUsb";
+    const string SessionName = "LinkWatchUsb";
     static Guid XhciProvider = new Guid("30E1D284-5D88-459C-83FD-6345B39B19EC");
 
     [DllImport("advapi32.dll", CharSet = CharSet.Unicode)] static extern uint StartTraceW(out ulong h, string name, IntPtr props);

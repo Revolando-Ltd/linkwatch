@@ -1,4 +1,4 @@
-﻿# Builds OVRMonitor.exe with the C# compiler that ships with Windows (.NET Framework 4). No third-party tools.
+# Builds LinkWatch.exe with the C# compiler that ships with Windows (.NET Framework 4). No third-party tools.
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $src  = Join-Path $root "src"
@@ -27,9 +27,9 @@ for ($i = 0; $i -lt $sizes.Count; $i++) {
 foreach ($p in $pngs) { $w.Write($p) }
 $w.Close()
 
-& $csc /nologo /target:winexe /optimize+ /platform:x64 "/out:$root\OVRMonitor.exe" "/win32icon:$ico" `
+& $csc /nologo /target:winexe /optimize+ /platform:x64 "/out:$root\LinkWatch.exe" "/win32icon:$ico" `
     /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.ServiceProcess.dll `
-    "$src\OVRMonitor.cs" "$src\UsbInfo.cs" "$src\EtwUsb.cs" "$src\History.cs"
+    "$src\LinkWatch.cs" "$src\UsbInfo.cs" "$src\EtwUsb.cs" "$src\History.cs"
 if ($LASTEXITCODE -ne 0) { throw "build failed" }
-Get-Item "$root\OVRMonitor.exe" | Select-Object Name, Length, LastWriteTime
+Get-Item "$root\LinkWatch.exe" | Select-Object Name, Length, LastWriteTime
 

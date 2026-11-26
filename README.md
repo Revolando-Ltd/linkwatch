@@ -2,7 +2,7 @@
   <a href="https://revolando.com"><img src="https://revolando.com/assets/img/revolando-icon.svg" alt="REVOLANDO" width="72"></a>
 </p>
 
-<h1 align="center">OVR Monitor</h1>
+<h1 align="center">LinkWatch</h1>
 
 <p align="center">
   <b>Keep Quest Link alive, see your cable, measure the real USB data rate.</b><br>
@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/main.png" alt="OVR Monitor main window" width="513">
+  <img src="docs/main.png" alt="LinkWatch main window" width="513">
 </p>
 
 ---
@@ -47,7 +47,7 @@ What we measured on the way, for the curious:
 | Share of a 5 Gbps USB 3 link | ~5 % |
 | Share of the same stream on USB 2.0 | ~half of the 480 Mbps bus |
 
-If your Link image is blurry, stutters or drops, check the cable before anything else. OVR Monitor shows you in one glance.
+If your Link image is blurry, stutters or drops, check the cable before anything else. LinkWatch shows you in one glance.
 
 ## Features
 
@@ -66,8 +66,8 @@ If your Link image is blurry, stutters or drops, check the cable before anything
 
 ## Download and run
 
-1. Get `OVRMonitor.exe` from the [latest release](../../releases/latest).
-2. Put it anywhere, for example `C:\Tools\OVRMonitor\`, and run it.
+1. Get `LinkWatch.exe` from the [latest release](../../releases/latest).
+2. Put it anywhere, for example `C:\Tools\LinkWatch\`, and run it.
 3. Click the **gear** icon, tick **Run as administrator (asks only once)** and press OK. Approve the Windows prompt.
 
    <img src="docs/settings.png" alt="Settings" width="366">
@@ -83,12 +83,12 @@ Closing the window hides it to the tray. Use **Exit** in the tray menu to quit.
 No Visual Studio needed. Windows already contains the .NET Framework 4 C# compiler.
 
 ```powershell
-git clone https://github.com/Revolando-Ltd/ovr-monitor.git
-cd ovr-monitor
+git clone https://github.com/Revolando-Ltd/linkwatch.git
+cd linkwatch
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-`build.ps1` draws the icon, then compiles `src\*.cs` into `OVRMonitor.exe` with `csc.exe` from `%WINDIR%\Microsoft.NET\Framework64\v4.0.30319`.
+`build.ps1` draws the icon, then compiles `src\*.cs` into `LinkWatch.exe` with `csc.exe` from `%WINDIR%\Microsoft.NET\Framework64\v4.0.30319`.
 
 ## How it works
 
@@ -100,26 +100,26 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 | Data rate | Real-time ETW session on `Microsoft-Windows-USB-USBXHCI`, event 41 (transfer), size read with TDH |
 | Wi-Fi rate | `System.Net.NetworkInformation` interface counters |
 | Elevation without prompts | A per-user scheduled task with *Run with highest privileges* |
-| Settings and history | `%APPDATA%\OVRMonitor\` (`settings.json`, `history\*.csv`) |
+| Settings and history | `%APPDATA%\LinkWatch\` (`settings.json`, `history\*.csv`) |
 
 **About the "from Quest" number:** for transfers coming *into* the PC, Windows logs the size of the buffer that was offered, not the bytes that actually arrived. Under load it reads roughly 10-15 % high, at idle much more, so it is shown with a `~`. The *to Quest* direction (the video stream) is exact.
 
 ## Uninstall
 
-Open the gear menu, untick **Run as administrator** and **Start with Windows** (this removes the scheduled task and the startup entry), exit from the tray, delete the exe. To remove the history as well, delete `%APPDATA%\OVRMonitor`.
+Open the gear menu, untick **Run as administrator** and **Start with Windows** (this removes the scheduled task and the startup entry), exit from the tray, delete the exe. To remove the history as well, delete `%APPDATA%\LinkWatch`.
 
 ## Contributing
 
 Issues and pull requests are welcome. Ideas that would fit well: support for other PC VR headsets, Air Link specific stats, a dark/light theme switch, translations.
 
-OVR Monitor is **free for personal and other noncommercial use**. You can read the code, change it and share your changes for noncommercial purposes. Two things go with every copy, original or modified: the [LICENSE](LICENSE) and the [NOTICE](NOTICE) (which credits REVOLANDO LTD).
+LinkWatch is **free for personal and other noncommercial use**. You can read the code, change it and share your changes for noncommercial purposes. Two things go with every copy, original or modified: the [LICENSE](LICENSE) and the [NOTICE](NOTICE) (which credits REVOLANDO LTD).
 ## License
 
 Copyright 2026 **[REVOLANDO LTD](https://revolando.com)**, London.
 Licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). See [NOTICE](NOTICE).
 
-**Commercial use.** Selling OVR Monitor, bundling it with a paid product or service, or using it for any other commercial purpose needs a commercial license. REVOLANDO LTD is the only party entitled to sell it; get in touch via [revolando.com](https://revolando.com).
-OVR Monitor is an independent project and is not affiliated with, endorsed by or sponsored by Meta Platforms, Inc. Meta, Meta Quest, Quest and Oculus are trademarks of Meta Platforms, Inc.
+**Commercial use.** Selling LinkWatch, bundling it with a paid product or service, or using it for any other commercial purpose needs a commercial license. REVOLANDO LTD is the only party entitled to sell it; get in touch via [revolando.com](https://revolando.com).
+LinkWatch is an independent project and is not affiliated with, endorsed by or sponsored by Meta Platforms, Inc. Meta, Meta Quest, Quest and Oculus are trademarks of Meta Platforms, Inc.
 
 <p align="center">
   <a href="https://revolando.com"><img src="https://revolando.com/assets/img/revolando-icon.svg" alt="REVOLANDO" width="40"></a><br>
