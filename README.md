@@ -12,7 +12,7 @@
 <p align="center">
   <a href="../../releases/latest"><img src="https://img.shields.io/badge/download-latest%20release-2ea043?style=for-the-badge&logo=windows" alt="Download"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=for-the-badge" alt="Windows 10 | 11">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue?style=for-the-badge" alt="Apache 2.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue?style=for-the-badge" alt="PolyForm Noncommercial 1.0.0"></a>
   <img src="https://img.shields.io/badge/dependencies-none-success?style=for-the-badge" alt="No dependencies">
 </p>
 
@@ -112,13 +112,13 @@ Open the gear menu, untick **Run as administrator** and **Start with Windows** (
 
 Issues and pull requests are welcome. Ideas that would fit well: support for other PC VR headsets, Air Link specific stats, a dark/light theme switch, translations.
 
-You are free to use, modify and redistribute OVR Monitor, including in your own projects, under the [Apache License 2.0](LICENSE). The one thing we ask (and the license requires) is that you **keep the attribution**: the copyright line and the [NOTICE](NOTICE) file go with any copy or derivative work.
-
+OVR Monitor is **free for personal and other noncommercial use**. You can read the code, change it and share your changes for noncommercial purposes. Two things go with every copy, original or modified: the [LICENSE](LICENSE) and the [NOTICE](NOTICE) (which credits REVOLANDO LTD).
 ## License
 
 Copyright 2026 **[REVOLANDO LTD](https://revolando.com)**, London.
-Licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE).
+Licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). See [NOTICE](NOTICE).
 
+**Commercial use.** Selling OVR Monitor, bundling it with a paid product or service, or using it for any other commercial purpose needs a commercial license. REVOLANDO LTD is the only party entitled to sell it; get in touch via [revolando.com](https://revolando.com).
 OVR Monitor is an independent project and is not affiliated with, endorsed by or sponsored by Meta Platforms, Inc. Meta, Meta Quest, Quest and Oculus are trademarks of Meta Platforms, Inc.
 
 <p align="center">
