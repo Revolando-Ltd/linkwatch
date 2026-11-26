@@ -154,7 +154,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 | Elevation without prompts | A per-user scheduled task with *Run with highest privileges* |
 | Settings and history | `%APPDATA%\LinkWatch\` (`settings.json`, `history\*.csv`) |
 
-**About the "from Quest" number:** for transfers coming *into* the PC, Windows logs the size of the buffer that was offered, not the bytes that actually arrived. Under load it reads roughly 10-15 % high, at idle much more, so it is shown with a `~`. The *to Quest* direction (the video stream) is exact.
+**About the "Received" number:** for transfers coming *into* the PC, Windows logs the size of the buffer that was offered, not the bytes that actually arrived. Under load it reads roughly 10-15 % high, at idle much more, so it is shown with a `~`. The *Sent* direction (PC to headset, the video stream) is exact.
 
 ## Uninstall
 

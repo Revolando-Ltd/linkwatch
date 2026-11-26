@@ -234,7 +234,7 @@ public class HistoryForm : Form {
                 g.DrawLine(p, x, PadT, x, h - PadB);
         }
         if (hoverX >= PadL && hoverX <= w - PadR) using (var p = new Pen(Color.FromArgb(110, 110, 110))) g.DrawLine(p, hoverX, PadT, hoverX, h - PadB);
-        g.DrawString("peak: " + MainForm.Rate(peak) + "    green: to Quest (avg, light = 1 s peak)   purple: from Quest (~)" + (chkWifi.Checked ? "   blue/orange: Wi-Fi" : ""),
+        g.DrawString("peak: " + MainForm.Rate(peak) + "    green: sent to Quest (avg, light = 1 s peak)   purple: received from Quest (~)" + (chkWifi.Checked ? "   blue/orange: Wi-Fi" : ""),
             UiFont, Brushes.Gray, PadL, 3);
         if (rows.Count == 0) g.DrawString("No data recorded in this range yet.", UiFont, Brushes.Gray, w / 2 - 110, h / 2 - 8);
     }
@@ -245,7 +245,7 @@ public class HistoryForm : Form {
         var t = from + TimeSpan.FromSeconds((to - from).TotalSeconds * (hoverX - PadL) / (w - PadL - PadR));
         var r = rows.OrderBy(x => Math.Abs((x.T - t).TotalSeconds)).First();
         if (Math.Abs((r.T - t).TotalMinutes) > Math.Max(2, range.TotalMinutes / (w - PadL - PadR) * 2)) { hover.Text = t.ToString("dd MMM HH:mm") + "   no data"; return; }
-        hover.Text = r.T.ToString("dd MMM HH:mm") + "   to Quest " + MainForm.Rate(r.Out) + " (peak " + MainForm.Rate(r.OutPeak) + ")\r\nfrom Quest ~" + MainForm.Rate(r.In) +
+        hover.Text = r.T.ToString("dd MMM HH:mm") + "   sent " + MainForm.Rate(r.Out) + " (peak " + MainForm.Rate(r.OutPeak) + ")\r\nreceived ~" + MainForm.Rate(r.In) +
             "   Wi-Fi " + MainForm.Rate(r.Rx) + " / " + MainForm.Rate(r.Tx);
     }
 }

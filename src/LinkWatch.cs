@@ -264,8 +264,9 @@ class MainForm : Form {
 
         Label t;
         secUsb = Section("USB cable (Quest Link)", 62, 288, out t);
-        Legend(secUsb, "To Quest", colors["out"], 250, null, ">");
-        Legend(secUsb, "From Quest (~)", colors["in"], 355, "<", null);
+        // same wording and places as the Wi-Fi box, seen from the PC: Received (from Quest) | Sent (to Quest)
+        Legend(secUsb, "Received (~)", colors["in"], 300, "<", null);
+        Legend(secUsb, "Sent", colors["out"], 412, null, ">");
         picCable = new PictureBox { Location = new Point(8, 30), Size = new Size(475, 68), BackColor = BgGraph };
         picCable.Paint += (s, e) => DrawCable(e.Graphics, picCable.Width);
         secUsb.Controls.Add(picCable);
@@ -277,7 +278,7 @@ class MainForm : Form {
         Label netTitle;
         secNet = Section("Network", 358, 182, out netTitle);
         Legend(secNet, "Received", colors["rx"], 300, "<", null);
-        Legend(secNet, "Sent", colors["tx"], 400, null, ">");
+        Legend(secNet, "Sent", colors["tx"], 412, null, ">");
         graphNet = Graph(secNet, new[] { "rx", "tx" }, 30, 120);
         lblNetRate = L("", 8, 156, 475, 20); secNet.Controls.Add(lblNetRate);
         cmbNet = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat, Location = new Point(150, 4), Size = new Size(140, 22), BackColor = BgPanel, ForeColor = Color.Gainsboro };
@@ -405,7 +406,7 @@ class MainForm : Form {
             Add("out", o); Add("in", i); Add("rx", rx); Add("tx", tx);
             History.AddSecond(DateTime.Now, o, i, rx, tx);
             lblUsbRate.ForeColor = Color.Gainsboro;
-            if (etw.Running) lblUsbRate.Text = "To Quest: " + Rate(o) + "      From Quest: ~" + Rate(i);
+            if (etw.Running) lblUsbRate.Text = "Received: ~" + Rate(i) + "      Sent: " + Rate(o);
             else if (cfg.Measure != "ETW") lblUsbRate.Text = "USB measurement is off (settings)";
             else if (!App.IsAdmin) { lblUsbRate.ForeColor = Color.Orange; lblUsbRate.Text = "USB measurement needs admin mode (settings)"; }
             else { lblUsbRate.ForeColor = Color.Orange; lblUsbRate.Text = "USB measurement could not start: " + etw.LastError; }
