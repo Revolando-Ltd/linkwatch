@@ -20,6 +20,91 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
+using System.Reflection;
+
+// shown in the exe's Properties > Details tab
+[assembly: AssemblyTitle("LinkWatch")]
+[assembly: AssemblyProduct("LinkWatch")]
+[assembly: AssemblyDescription("Quest Link diagnostic tool: cable speed, real USB data rate, history, service restart")]
+[assembly: AssemblyCompany("REVOLANDO LTD")]
+[assembly: AssemblyCopyright("Copyright 2026 REVOLANDO LTD. PolyForm Noncommercial 1.0.0")]
+[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
+
+static class AboutInfo {
+    public const string Version = "1.0.0 beta 1";
+    public const string TermsVersion = "1";   // bump when the terms text changes, users are asked again
+    public const string Author = "Aydın Özon";
+    public const string Company = "REVOLANDO LTD", CompanyUrl = "https://revolando.com";
+    public const string RepoUrl = "https://github.com/Revolando-Ltd/linkwatch";
+    public const string LicenseName = "PolyForm Noncommercial 1.0.0";
+    public const string LicenseUrl = "https://polyformproject.org/licenses/noncommercial/1.0.0";
+}
+
+// Shown once (and again when the terms change): use at your own risk, what the app does to the system, license.
+class TermsForm : Form {
+    public const string Text1 =
+        "LinkWatch is provided \"AS IS\", without warranty of any kind, express or implied, including fitness for a particular purpose. You use it at your own risk.\r\n\r\n" +
+        "What LinkWatch does on your PC:\r\n" +
+        "  - Re-Start stops and starts the Windows service OVRService. This disconnects any running Quest Link session and VR application.\r\n" +
+        "  - It reads USB transfer events through Windows' own Event Tracing (ETW). It does not install drivers and does not change USB settings.\r\n" +
+        "  - In administrator mode it creates a Windows scheduled task that starts it with administrator rights.\r\n" +
+        "  - It stores settings and history only on this PC (%APPDATA%\\LinkWatch). Nothing is sent anywhere.\r\n\r\n" +
+        "To the maximum extent permitted by law, REVOLANDO LTD and the authors are not liable for any damage or loss arising from the use of LinkWatch, including interrupted sessions, lost work, data loss or hardware issues. Nothing in these terms limits liability that cannot be limited by law.\r\n\r\n" +
+        "License: PolyForm Noncommercial 1.0.0. Free for noncommercial use. Commercial use, sale or resale requires a license from REVOLANDO LTD (revolando.com).\r\n\r\n" +
+        "LinkWatch is not affiliated with, endorsed by or sponsored by Meta Platforms, Inc. Meta, Meta Quest, Quest and Oculus are trademarks of Meta Platforms, Inc.";
+    public TermsForm(Icon icon) {
+        Text = "LinkWatch - Terms of use"; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false;
+        StartPosition = FormStartPosition.CenterScreen; ClientSize = new Size(520, 460); TopMost = true;
+        BackColor = Color.FromArgb(24, 24, 24); ForeColor = Color.Gainsboro; Font = new Font("Segoe UI", 9f); Icon = icon;
+        HandleCreated += (s, e) => MainForm.DarkTitle(this);
+        var head = new Label { Text = "Please read and accept before using LinkWatch", Location = new Point(16, 14), AutoSize = true, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold) };
+        var box = new TextBox { Text = Text1, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Location = new Point(16, 44), Size = new Size(488, 356),
+            BackColor = Color.FromArgb(16, 16, 16), ForeColor = Color.Gainsboro, BorderStyle = BorderStyle.FixedSingle, TabStop = false };
+        box.HandleCreated += (s, e) => HistoryForm.SetWindowTheme(box.Handle, "DarkMode_Explorer", null);
+        var agree = new Button { Text = "I agree", Location = new Point(316, 414), Size = new Size(90, 30), FlatStyle = FlatStyle.Flat, BackColor = Color.LightGreen, ForeColor = Color.Black, DialogResult = DialogResult.OK };
+        var exit = new Button { Text = "Exit", Location = new Point(414, 414), Size = new Size(90, 30), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(60, 60, 60), DialogResult = DialogResult.Cancel };
+        exit.FlatAppearance.BorderColor = Color.FromArgb(90, 90, 90);
+        Controls.AddRange(new Control[] { head, box, agree, exit });
+        AcceptButton = agree; CancelButton = exit;
+        Shown += (s, e) => { box.SelectionLength = 0; agree.Focus(); };
+    }
+}
+
+// About window: who made it, the license, where the code lives
+class AboutForm : Form {
+    public AboutForm(Icon icon) {
+        Text = "About LinkWatch"; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false;
+        StartPosition = FormStartPosition.CenterParent; ShowInTaskbar = false; ClientSize = new Size(380, 330);
+        BackColor = Color.FromArgb(24, 24, 24); ForeColor = Color.Gainsboro; Font = new Font("Segoe UI", 9f); Icon = icon;
+        HandleCreated += (s, e) => MainForm.DarkTitle(this);
+        var logo = new PictureBox { Location = new Point(20, 20), Size = new Size(48, 48) };
+        logo.Paint += (s, e) => { e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; e.Graphics.FillEllipse(Brushes.LimeGreen, 4, 4, 40, 40); };
+        int y = 20;
+        Func<string, Font, Color, Label> add = (t, f, c) => { var l = new Label { Text = t, Font = f, ForeColor = c, Location = new Point(84, y), AutoSize = true }; Controls.Add(l); y += f.Height + 6; return l; };
+        add("LinkWatch", new Font("Segoe UI", 14f, FontStyle.Bold), Color.Gainsboro);
+        add("Version " + AboutInfo.Version, Font, Color.Gray);
+        y += 6;
+        add("Quest Link diagnostic tool", Font, Color.Gainsboro);
+        add("Created by " + AboutInfo.Author, Font, Color.Gainsboro);
+        add("© 2026 " + AboutInfo.Company, Font, Color.Gainsboro);
+        y += 8;
+        Func<string, string, LinkLabel> link = (t, url) => {
+            var l = new LinkLabel { Text = t, Location = new Point(84, y), AutoSize = true, LinkColor = Color.LightGreen, ActiveLinkColor = Color.White, VisitedLinkColor = Color.LightGreen };
+            if (url != null) l.LinkClicked += (s, e) => { try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { } };
+            Controls.Add(l); y += Font.Height + 8; return l;
+        };
+        link("revolando.com", AboutInfo.CompanyUrl);
+        link("Source code on GitHub", AboutInfo.RepoUrl);
+        link("License: " + AboutInfo.LicenseName, AboutInfo.LicenseUrl);
+        var terms = link("Terms of use", null);
+        terms.LinkClicked += (s, e) => MessageBox.Show(this, TermsForm.Text1, "LinkWatch - Terms of use");
+        var note = new Label { Text = "Free for noncommercial use. Commercial use and sale only with a license from REVOLANDO LTD.", Location = new Point(20, y + 4), Size = new Size(340, 34), ForeColor = Color.Gray };
+        var ok = new Button { Text = "OK", Location = new Point(280, 292), Size = new Size(80, 28), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(60, 60, 60), DialogResult = DialogResult.OK };
+        ok.FlatAppearance.BorderColor = Color.FromArgb(90, 90, 90);
+        Controls.AddRange(new Control[] { logo, note, ok }); AcceptButton = ok;
+    }
+}
 
 static class App {
     public const string Name = "LinkWatch", TaskName = "LinkWatch", ServiceName = "OVRService";
@@ -115,6 +200,12 @@ static class App {
             MainForm.ShotEvent = shotEvent;
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            // terms of use: accepted once per terms version, otherwise the app does not start
+            if (cfg.AcceptedTerms != AboutInfo.TermsVersion) {
+                using (var tf = new TermsForm(Icon.ExtractAssociatedIcon(ExePath)))
+                    if (tf.ShowDialog() != DialogResult.OK) return 0;
+                cfg.AcceptedTerms = AboutInfo.TermsVersion; cfg.Save();
+            }
             var f = new MainForm(cfg, showEvent, hidden);
             Application.Run(f.Context);
         }
@@ -123,7 +214,7 @@ static class App {
 }
 
 class Settings {
-    public string Measure = "ETW";
+    public string Measure = "ETW", AcceptedTerms = "";
     public bool AdminMode = false, Autostart = true, Wifi = false;
     public int CheckSec = 30, HistoryDays = 30;
     static string Dir { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LinkWatch"); } }
@@ -136,6 +227,7 @@ class Settings {
                 string k = m.Groups[1].Value, v = m.Groups[2].Value.Trim();
                 switch (k) {
                     case "Measure": s.Measure = v; break;
+                    case "AcceptedTerms": s.AcceptedTerms = v; break;
                     case "AdminMode": s.AdminMode = v == "true"; break;
                     case "Autostart": s.Autostart = v == "true"; break;
                     case "Wifi": s.Wifi = v == "true"; break;
@@ -151,7 +243,7 @@ class Settings {
     public void Save() {
         Directory.CreateDirectory(Dir);
         Func<bool, string> b = x => x ? "true" : "false";
-        File.WriteAllText(FilePath, "{\r\n  \"Measure\": \"" + Measure + "\",\r\n  \"AdminMode\": " + b(AdminMode) + ",\r\n  \"Autostart\": " + b(Autostart) +
+        File.WriteAllText(FilePath, "{\r\n  \"Measure\": \"" + Measure + "\",\r\n  \"AcceptedTerms\": \"" + AcceptedTerms + "\",\r\n  \"AdminMode\": " + b(AdminMode) + ",\r\n  \"Autostart\": " + b(Autostart) +
             ",\r\n  \"CheckSec\": " + CheckSec + ",\r\n  \"HistoryDays\": " + HistoryDays + ",\r\n  \"Wifi\": " + b(Wifi) + "\r\n}\r\n");
     }
 }
@@ -304,6 +396,7 @@ class MainForm : Form {
         menu.Items.Add("Check now", null, (s, e) => { CheckService(); UpdateConn(); });
         menu.Items.Add("History", null, (s, e) => { ShowMain(); ShowHistory(); });
         menu.Items.Add("Settings", null, (s, e) => { ShowMain(); ShowSettings(); });
+        menu.Items.Add("About LinkWatch", null, (s, e) => { ShowMain(); ShowAbout(); });
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (s, e) => Quit());
         tray.ContextMenuStrip = menu;
@@ -590,6 +683,8 @@ class MainForm : Form {
         }
     }
 
+    void ShowAbout() { using (var a = new AboutForm(Icon)) a.ShowDialog(this); }
+
     void ShowSettings() {
         var d = new Form { Text = "Settings", FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false,
             StartPosition = FormStartPosition.CenterParent, ClientSize = new Size(360, 284), BackColor = BgForm, ForeColor = Color.Gainsboro, Font = UiFont, ShowInTaskbar = false };
@@ -611,7 +706,10 @@ class MainForm : Form {
         var chkAuto = new CheckBox { Text = "Start with Windows (in the tray)", Location = new Point(16, 112), Size = new Size(330, 22), Checked = cfg.Autostart };
         var num = new NumericUpDown { Location = new Point(170, 147), Size = new Size(70, 22), Minimum = 5, Maximum = 600, Value = cfg.CheckSec };
         var numDays = new NumericUpDown { Location = new Point(170, 181), Size = new Size(70, 22), Minimum = 1, Maximum = 365, Value = cfg.HistoryDays };
-        var state = L("Now running as " + (App.IsAdmin ? "administrator" : "normal user"), 16, 216, 330, 20); state.ForeColor = Color.Gray;
+        var state = L("Now running as " + (App.IsAdmin ? "administrator" : "normal user"), 16, 216, 150, 20); state.ForeColor = Color.Gray;
+        var about = new LinkLabel { Text = "About LinkWatch", Location = new Point(16, 252), AutoSize = true, LinkColor = Color.LightGreen, ActiveLinkColor = Color.White, VisitedLinkColor = Color.LightGreen };
+        about.LinkClicked += (s, e) => { using (var a = new AboutForm(Icon)) a.ShowDialog(d); };
+        d.Controls.Add(about);
         var ok = new Button { Text = "OK", Location = new Point(176, 246), Size = new Size(80, 28), FlatStyle = FlatStyle.Flat, DialogResult = DialogResult.OK };
         var cancel = new Button { Text = "Cancel", Location = new Point(264, 246), Size = new Size(80, 28), FlatStyle = FlatStyle.Flat, DialogResult = DialogResult.Cancel };
         d.AcceptButton = ok; d.CancelButton = cancel;
