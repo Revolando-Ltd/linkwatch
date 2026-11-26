@@ -250,15 +250,37 @@ static class App {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             // terms of use: accepted once per terms version, otherwise the app does not start
-            if (cfg.AcceptedTerms != AboutInfo.TermsVersion && Environment.GetEnvironmentVariable("LINKWATCH_SIMULATE") == null) {   // test runs skip it
+            Log.Write("start " + AboutInfo.Version + " from " + ExePath + (hidden ? " (hidden)" : "") + ", accepted terms=\"" + cfg.AcceptedTerms + "\"");
+            bool askTerms = cfg.AcceptedTerms != AboutInfo.TermsVersion;
+#if DEVTOOLS
+            if (Environment.GetEnvironmentVariable("LINKWATCH_SIMULATE") != null) askTerms = false;   // dev test runs skip it
+#endif
+            if (askTerms) {
+                Log.Write("terms: asking (current version " + AboutInfo.TermsVersion + ")");
                 using (var tf = new TermsForm(Icon.ExtractAssociatedIcon(ExePath)))
-                    if (tf.ShowDialog() != DialogResult.OK) return 0;
+                    if (tf.ShowDialog() != DialogResult.OK) { Log.Write("terms: declined"); return 0; }
                 cfg.AcceptedTerms = AboutInfo.TermsVersion; cfg.Save();
             }
             var f = new MainForm(cfg, showEvent, hidden);
             Application.Run(f.Context);
         }
         return 0;
+    }
+}
+
+// Small local log (%APPDATA%\LinkWatch\linkwatch.log, last ~200 KB) so that odd behaviour can be explained afterwards.
+static class Log {
+    static readonly object gate = new object();
+    static string FilePath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LinkWatch", "linkwatch.log"); } }
+    public static void Write(string text) {
+        try {
+            lock (gate) {
+                Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
+                var fi = new FileInfo(FilePath);
+                if (fi.Exists && fi.Length > 200000) { string old = FilePath + ".old"; File.Delete(old); File.Move(FilePath, old); }
+                File.AppendAllText(FilePath, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " [" + Process.GetCurrentProcess().Id + (App.IsAdmin ? " admin" : "") + "] " + text + "\r\n");
+            }
+        } catch { }
     }
 }
 
@@ -272,7 +294,15 @@ class Settings {
     public static Settings Load() {
         var s = new Settings();
         try {
-            foreach (Match m in Regex.Matches(File.ReadAllText(FilePath), "\"(\\w+)\"\\s*:\\s*\"?([^\",\\r\\n}]*)\"?")) {
+            if (!File.Exists(FilePath)) { Log.Write("settings: no file, using defaults"); return s; }
+            // another instance may be writing it this very moment: retry instead of silently falling back to defaults
+            string text = null;
+            for (int i = 0; i < 10 && text == null; i++) {
+                try { text = File.ReadAllText(FilePath); if (text.IndexOf('}') < 0) text = null; } catch { }
+                if (text == null) Thread.Sleep(50);
+            }
+            if (text == null) { Log.Write("settings: file unreadable or incomplete, using defaults"); return s; }
+            foreach (Match m in Regex.Matches(text, "\"(\\w+)\"\\s*:\\s*\"?([^\",\\r\\n}]*)\"?")) {
                 string k = m.Groups[1].Value, v = m.Groups[2].Value.Trim();
                 switch (k) {
                     case "Measure": s.Measure = v; break;
@@ -284,7 +314,7 @@ class Settings {
                     case "HistoryDays": int.TryParse(v, out s.HistoryDays); break;
                 }
             }
-        } catch { }
+        } catch (Exception ex) { Log.Write("settings: load failed: " + ex.Message); }
         if (s.CheckSec < 5) s.CheckSec = 30;
         if (s.HistoryDays < 1) s.HistoryDays = 30;
         return s;
@@ -292,8 +322,12 @@ class Settings {
     public void Save() {
         Directory.CreateDirectory(Dir);
         Func<bool, string> b = x => x ? "true" : "false";
-        File.WriteAllText(FilePath, "{\r\n  \"Measure\": \"" + Measure + "\",\r\n  \"AcceptedTerms\": \"" + AcceptedTerms + "\",\r\n  \"AdminMode\": " + b(AdminMode) + ",\r\n  \"Autostart\": " + b(Autostart) +
+        // write to a temp file and swap it in, so a reader never sees a half-written file
+        string tmp = FilePath + ".tmp";
+        File.WriteAllText(tmp, "{\r\n  \"Measure\": \"" + Measure + "\",\r\n  \"AcceptedTerms\": \"" + AcceptedTerms + "\",\r\n  \"AdminMode\": " + b(AdminMode) + ",\r\n  \"Autostart\": " + b(Autostart) +
             ",\r\n  \"CheckSec\": " + CheckSec + ",\r\n  \"HistoryDays\": " + HistoryDays + ",\r\n  \"Wifi\": " + b(Wifi) + "\r\n}\r\n");
+        if (File.Exists(FilePath)) File.Replace(tmp, FilePath, null); else File.Move(tmp, FilePath);
+        Log.Write("settings saved: terms=" + AcceptedTerms + " admin=" + AdminMode + " autostart=" + Autostart + " measure=" + Measure);
     }
 }
 
